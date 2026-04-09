@@ -36,23 +36,19 @@ export default function WalletConnectButton() {
         return
       }
 
-      // Connect directly through the adapter with all required params
+      // Connect through the adapter
       try {
         await adapter.connect(
           Network.TESTNET,
-          DecryptPermission.UponRequest,
-          ['zkleaks_v2.aleo']
+          DecryptPermission.UponRequest
         )
       } catch (connectErr: any) {
         const msg = connectErr?.message || ''
         // If adapter fails, try connecting through window.leoWallet directly
-        if (msg.includes('No address') || msg.includes('not selected') || msg.includes('NotSelected')) {
+        if (msg.includes('No address') || msg.includes('not selected') || msg.includes('NotSelected') || msg.includes('invalid')) {
           try {
-            await leoWallet.connect(DecryptPermission.UponRequest, 'testnet', ['zkleaks_v2.aleo'])
-            if (!leoWallet.publicKey) {
-              // Try without network constraint
-              await leoWallet.connect(DecryptPermission.UponRequest)
-            }
+            // Try with minimal params - just decrypt permission string
+            await leoWallet.connect('DECRYPT_UPON_REQUEST')
           } catch (directErr: any) {
             const directMsg = directErr?.message || ''
             if (directMsg.includes('network') || directMsg.includes('NETWORK_NOT_GRANTED')) {
