@@ -29,6 +29,13 @@ export default function WalletConnectButton() {
         return
       }
 
+      // Try connecting directly through window.leoWallet as fallback
+      const leoWallet = (window as any).leoWallet || (window as any).leo
+      if (!leoWallet) {
+        setError('Leo Wallet extension not found. Install from leo.app and refresh the page.')
+        return
+      }
+
       // Connect directly through the adapter with all required params
       try {
         await adapter.connect(
@@ -38,15 +45,29 @@ export default function WalletConnectButton() {
         )
       } catch (connectErr: any) {
         const msg = connectErr?.message || ''
-        if (msg.includes('network') || msg.includes('NETWORK_NOT_GRANTED')) {
+        // If adapter fails, try connecting through window.leoWallet directly
+        if (msg.includes('No address') || msg.includes('not selected') || msg.includes('NotSelected')) {
+          try {
+            await leoWallet.connect(DecryptPermission.UponRequest, 'testnet', ['zkleaks_v2.aleo'])
+            if (!leoWallet.publicKey) {
+              // Try without network constraint
+              await leoWallet.connect(DecryptPermission.UponRequest)
+            }
+          } catch (directErr: any) {
+            const directMsg = directErr?.message || ''
+            if (directMsg.includes('network') || directMsg.includes('NETWORK_NOT_GRANTED')) {
+              setError('Switch Leo Wallet to Testnet: Settings → Network → Testnet')
+            } else {
+              setError(directMsg || 'Connection rejected. Approve the request in Leo Wallet.')
+            }
+            return
+          }
+        } else if (msg.includes('network') || msg.includes('NETWORK_NOT_GRANTED')) {
           setError('Switch Leo Wallet to Testnet: Settings → Network → Testnet')
           return
+        } else {
+          throw connectErr
         }
-        if (msg.includes('No address') || msg.includes('publicKey')) {
-          setError('Unlock Leo Wallet and try again.')
-          return
-        }
-        throw connectErr
       }
 
       // Also select through the hook to sync React state
