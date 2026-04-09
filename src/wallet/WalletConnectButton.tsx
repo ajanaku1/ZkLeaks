@@ -1,93 +1,104 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useWallet } from '@provablehq/aleo-wallet-adaptor-react'
-import { DecryptPermission } from '@provablehq/aleo-wallet-adaptor-core'
-import { Network } from '@provablehq/aleo-types'
 
 export default function WalletConnectButton() {
-  const { connected, address, wallets, selectWallet, connect, disconnect } = useWallet()
+  const { connected, wallets, selectWallet, disconnect } = useWallet()
   const [showDropdown, setShowDropdown] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [walletAddress, setWalletAddress] = useState<string | null>(null)
 
-  const handleConnect = useCallback(async (walletName: string) => {
+  // Sync address from Leo Wallet directly
+  useEffect(() => {
+    const leo = (window as any).leoWallet || (window as any).leo
+    if (leo?.publicKey) {
+      setWalletAddress(leo.publicKey)
+    }
+  }, [connected])
+
+  const handleConnect = useCallback(async () => {
     try {
       setConnecting(true)
       setError(null)
 
-      // Find the adapter directly
-      const wallet = wallets.find(w => w.adapter.name === walletName)
-      if (!wallet) {
-        setError('Wallet not found. Is Leo Wallet installed?')
+      const leo = (window as any).leoWallet || (window as any).leo
+      if (!leo) {
+        setError('Leo Wallet not found. Install from leo.app and refresh.')
         return
       }
 
-      const adapter = wallet.adapter
+      // Connect directly through window.leoWallet, trying network strings
+      const networkStrings = ['testnet', 'testnetbeta', 'mainnet']
+      let connectSuccess = false
 
-      // Check if wallet extension is detected
-      if (adapter.readyState === 'NotDetected' || adapter.readyState === 'Unsupported') {
-        setError('Leo Wallet not detected. Install it from leo.app and refresh.')
-        return
-      }
-
-      // Try connecting directly through window.leoWallet as fallback
-      const leoWallet = (window as any).leoWallet || (window as any).leo
-      if (!leoWallet) {
-        setError('Leo Wallet extension not found. Install from leo.app and refresh the page.')
-        return
-      }
-
-      // Connect through the adapter
-      try {
-        await adapter.connect(
-          Network.TESTNET,
-          DecryptPermission.UponRequest
-        )
-      } catch (connectErr: any) {
-        const msg = connectErr?.message || ''
-        // If adapter fails, try connecting through window.leoWallet directly
-        if (msg.includes('No address') || msg.includes('not selected') || msg.includes('NotSelected') || msg.includes('invalid')) {
-          try {
-            // Try with minimal params - just decrypt permission string
-            await leoWallet.connect('DECRYPT_UPON_REQUEST')
-          } catch (directErr: any) {
-            const directMsg = directErr?.message || ''
-            if (directMsg.includes('network') || directMsg.includes('NETWORK_NOT_GRANTED')) {
-              setError('Switch Leo Wallet to Testnet: Settings → Network → Testnet')
-            } else {
-              setError(directMsg || 'Connection rejected. Approve the request in Leo Wallet.')
-            }
+      for (const network of networkStrings) {
+        try {
+          await leo.connect('DECRYPT_UPON_REQUEST', network, ['zkleaks_v2.aleo'])
+          connectSuccess = true
+          break
+        } catch (e: any) {
+          const msg = e?.message || ''
+          // If it's a network mismatch, try next
+          if (msg.includes('network') || msg.includes('NETWORK') || msg.includes('invalid') || msg.includes('param')) {
+            continue
+          }
+          // If user rejected, stop
+          if (msg.includes('reject') || msg.includes('denied') || msg.includes('cancel')) {
+            setError('Connection rejected. Approve the request in Leo Wallet.')
             return
           }
-        } else if (msg.includes('network') || msg.includes('NETWORK_NOT_GRANTED')) {
-          setError('Switch Leo Wallet to Testnet: Settings → Network → Testnet')
-          return
-        } else {
-          throw connectErr
+          // Unknown error on this attempt, try next
+          continue
         }
       }
 
-      // Also select through the hook to sync React state
-      selectWallet(walletName as any)
+      // If all network strings failed, try with no network at all
+      if (!connectSuccess) {
+        try {
+          await leo.connect('DECRYPT_UPON_REQUEST')
+          connectSuccess = true
+        } catch {
+          // Try absolute minimum
+          try {
+            await leo.connect()
+            connectSuccess = true
+          } catch (finalErr: any) {
+            setError(finalErr?.message || 'Could not connect. Make sure Leo Wallet is unlocked.')
+            return
+          }
+        }
+      }
 
-      // Give React state a moment to sync
-      await new Promise(r => setTimeout(r, 500))
-      try {
-        await connect(Network.TESTNET)
-      } catch {
-        // Adapter already connected, hook state will catch up
+      const addr = leo.publicKey
+      if (!addr) {
+        setError('Connected but no address returned. Unlock Leo Wallet and try again.')
+        return
+      }
+
+      setWalletAddress(addr)
+
+      // Sync with React hook
+      const leoAdapter = wallets.find(w => w.adapter.name === 'Leo Wallet')
+      if (leoAdapter) {
+        selectWallet('Leo Wallet' as any)
       }
 
       setShowDropdown(false)
     } catch (e: any) {
       console.error('Wallet connect error:', e)
-      setError(e?.message || 'Failed to connect')
+      setError(e?.message || 'Failed to connect. Check console for details.')
     } finally {
       setConnecting(false)
     }
-  }, [wallets, selectWallet, connect])
+  }, [wallets, selectWallet])
 
   const handleDisconnect = async () => {
-    try { await disconnect() } catch { /* ignore */ }
+    try {
+      const leo = (window as any).leoWallet || (window as any).leo
+      if (leo) await leo.disconnect()
+      await disconnect()
+    } catch { /* ignore */ }
+    setWalletAddress(null)
     setShowDropdown(false)
   }
 
@@ -101,8 +112,13 @@ export default function WalletConnectButton() {
     return () => document.removeEventListener('click', close)
   }, [showDropdown])
 
+  // Check if Leo Wallet is available
+  const leoDetected = typeof window !== 'undefined' && !!((window as any).leoWallet || (window as any).leo)
+  const isConnected = connected || !!walletAddress
+  const displayAddress = walletAddress || null
+
   // Connected
-  if (connected && address) {
+  if (isConnected && displayAddress) {
     return (
       <div className="relative wallet-dropdown">
         <button
@@ -110,12 +126,12 @@ export default function WalletConnectButton() {
           className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[1px] px-3 py-1.5 border border-success/50 text-success hover:border-success transition-colors bg-transparent cursor-pointer"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse-slow" />
-          {address.slice(0, 8)}...{address.slice(-4)}
+          {displayAddress.slice(0, 8)}...{displayAddress.slice(-4)}
         </button>
         {showDropdown && (
           <div className="absolute right-0 top-full mt-1 bg-bg-secondary border border-border p-2 z-50 min-w-[160px]">
             <div className="text-[10px] text-text-muted px-2 py-1 mb-1 border-b border-border">
-              {address.slice(0, 12)}...{address.slice(-8)}
+              {displayAddress.slice(0, 12)}...{displayAddress.slice(-8)}
             </div>
             <button
               onClick={handleDisconnect}
@@ -133,60 +149,34 @@ export default function WalletConnectButton() {
   return (
     <div className="relative wallet-dropdown">
       <button
-        onClick={() => setShowDropdown(!showDropdown)}
+        onClick={leoDetected ? handleConnect : () => setShowDropdown(!showDropdown)}
         disabled={connecting}
         className="text-[11px] font-mono uppercase tracking-[1px] px-3 py-1.5 border border-accent text-accent hover:bg-accent-dim transition-colors bg-transparent cursor-pointer disabled:opacity-50"
       >
         {connecting ? 'Connecting...' : 'Connect Wallet'}
       </button>
 
-      {showDropdown && (
+      {!leoDetected && showDropdown && (
         <div className="absolute right-0 top-full mt-1 bg-bg-secondary border border-border p-3 z-50 min-w-[240px]">
-          <p className="text-[10px] text-text-muted uppercase tracking-[1px] mb-2 m-0">
-            Select Wallet
-          </p>
+          <div className="text-[11px] text-text-muted">
+            <p className="m-0 mb-2">Leo Wallet not detected.</p>
+            <a
+              href="https://www.leo.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
+              Install Leo Wallet
+            </a>
+          </div>
+        </div>
+      )}
 
-          {wallets.length > 0 ? (
-            wallets.map((w) => {
-              const ready = w.adapter.readyState
-              const detected = ready === 'Installed' || ready === 'Loadable'
-              return (
-                <button
-                  key={w.adapter.name}
-                  onClick={() => handleConnect(w.adapter.name)}
-                  disabled={connecting}
-                  className="w-full flex items-center gap-2 text-[11px] font-mono text-text-primary hover:text-accent px-2 py-2 bg-transparent border border-border hover:border-accent transition-colors cursor-pointer mb-1 disabled:opacity-50"
-                >
-                  {w.adapter.icon && (
-                    <img src={w.adapter.icon} alt="" className="w-4 h-4" />
-                  )}
-                  {w.adapter.name}
-                  {!detected && (
-                    <span className="text-[9px] text-text-muted ml-auto">not detected</span>
-                  )}
-                </button>
-              )
-            })
-          ) : (
-            <div className="text-[11px] text-text-muted">
-              <p className="m-0 mb-2">No Aleo wallet detected.</p>
-              <a
-                href="https://www.leo.app/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:underline"
-              >
-                Install Leo Wallet
-              </a>
-            </div>
-          )}
-
-          {error && (
-            <p className="text-[10px] text-danger mt-2 m-0 leading-relaxed">{error}</p>
-          )}
-
+      {error && (
+        <div className="absolute right-0 top-full mt-1 bg-bg-secondary border border-danger/50 p-3 z-50 min-w-[240px]">
+          <p className="text-[10px] text-danger m-0 leading-relaxed">{error}</p>
           <p className="text-[9px] text-text-muted mt-2 m-0">
-            Ensure wallet is unlocked and set to Testnet
+            Ensure Leo Wallet is unlocked and set to Testnet
           </p>
         </div>
       )}
