@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg-primary: #0a0a0a;
+  --color-bg-secondary: #111111;
+  --color-bg-tertiary: #1a1a1a;
+  --color-bg-card: #0f0f0f;
+  --color-border: #222222;
+  --color-border-glow: #d4a017;
+  --color-text-primary: #e8e8e8;
+  --color-text-secondary: #888888;
+  --color-text-muted: #555555;
+  --color-accent: #d4a017;
+  --color-accent-dim: #d4a01733;
+  --color-accent-glow: #d4a01766;
+  --color-danger: #ff4444;
+  --color-success: #00cc66;
+  --color-warning: #d4a017;
+  --font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
+}
+
+/* Scanline overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+* { -webkit-font-smoothing: antialiased; }
+body { margin: 0; }
+
+::selection {
+  background: var(--color-accent-dim);
+  color: var(--color-accent);
+}
+
+input, select, textarea { outline: none; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--color-bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--color-border); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-muted); }
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-blink { animation: blink 1s step-end infinite; }
+.animate-pulse-slow { animation: pulse 2s infinite; }
+.animate-spin-slow { animation: spin 1s linear infinite; }
+
+/* Aleo wallet button overrides to match terminal theme */
+.wallet-button-wrapper .wallet-adapter-button {
+  background: var(--color-bg-tertiary) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-accent) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 1px !important;
+  padding: 6px 14px !important;
+  border-radius: 2px !important;
+  height: auto !important;
+  line-height: 1.4 !important;
+  transition: border-color 0.2s, background 0.2s !important;
+}
+
+.wallet-button-wrapper .wallet-adapter-button:hover {
+  background: var(--color-accent-dim) !important;
+  border-color: var(--color-accent) !important;
+}
+
+.wallet-button-wrapper .wallet-adapter-button-trigger {
+  background: var(--color-accent) !important;
+  color: var(--color-bg-primary) !important;
+  border-color: var(--color-accent) !important;
+  font-weight: 600 !important;
+}
+
+.wallet-button-wrapper .wallet-adapter-button-trigger:hover {
+  background: #c49515 !important;
+}
+
+/* Wallet modal overrides */
+.wallet-adapter-modal-wrapper {
+  background: var(--color-bg-secondary) !important;
+  border: 1px solid var(--color-border) !important;
+  font-family: var(--font-mono) !important;
+}
+
+.wallet-adapter-modal-title {
+  color: var(--color-accent) !important;
+  font-family: var(--font-mono) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 2px !important;
+}
+
+.wallet-adapter-modal-list li {
+  background: var(--color-bg-tertiary) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+.wallet-adapter-modal-list li:hover {
+  border-color: var(--color-accent) !important;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button {
+  color: var(--color-text-primary) !important;
+  font-family: var(--font-mono) !important;
+}
+
+.wallet-adapter-modal-button-close {
+  background: var(--color-bg-tertiary) !important;
+  color: var(--color-text-secondary) !important;
+}

@@ -1,0 +1,34 @@
+// ZkLeaks Test Inputs
+
+// --- register_org ---
+[register_org]
+org_id: field = 1field;
+initial_merkle_root: field = 123456789field;
+
+// --- add_member ---
+[add_member]
+org_id: field = 1field;
+member_secret: field = 987654321field;
+new_merkle_root: field = 111222333field;
+
+// --- submit_report ---
+[submit_report]
+org_id: field = 1field;
+category: u8 = 0u8;
+severity: u8 = 3u8;
+content_hash: field = 555666777field;
+topic_nonce: field = 444555666field;
+
+// --- fund_bounty ---
+[fund_bounty]
+org_id: field = 1field;
+amount: u64 = 1000000u64;
+
+// --- verify_report ---
+[verify_report]
+report_id: field = 0field;
+
+// --- update_merkle_root ---
+[update_merkle_root]
+org_id: field = 1field;
+new_merkle_root: field = 999888777field;

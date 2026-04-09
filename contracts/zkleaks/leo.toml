@@ -1,0 +1,8 @@
+[project]
+name = "zkleaks_v2"
+version = "0.1.0"
+description = "ZkLeaks: Anonymous whistleblowing protocol using ZK proofs on Aleo"
+license = "MIT"
+
+[network]
+name = "testnet"

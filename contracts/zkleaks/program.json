@@ -1,0 +1,6 @@
+{
+  "program": "zkleaks_v2.aleo",
+  "version": "0.1.0",
+  "description": "ZkLeaks: Anonymous whistleblowing protocol using ZK proofs for membership verification on Aleo",
+  "license": "MIT"
+}
