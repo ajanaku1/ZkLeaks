@@ -16,32 +16,32 @@ export default function WalletConnectButton() {
       // Select the wallet first
       selectWallet(walletName as any)
 
-      // Wait for selection to propagate through React state
-      await new Promise(r => setTimeout(r, 300))
-
-      // Then connect
-      await connect(Network.TESTNET)
-      setShowDropdown(false)
+      // Wait for selection to propagate, then retry connect with backoff
+      for (let attempt = 0; attempt < 5; attempt++) {
+        await new Promise(r => setTimeout(r, 300 + attempt * 200))
+        try {
+          await connect(Network.TESTNET)
+          setShowDropdown(false)
+          setError(null)
+          return
+        } catch (e: any) {
+          const msg = e?.message || ''
+          if (msg.includes('not selected') || msg.includes('NotSelected')) {
+            // Selection hasn't propagated yet, retry
+            continue
+          }
+          // Real error, throw it
+          throw e
+        }
+      }
+      setError('Could not connect. Make sure Leo Wallet is unlocked and set to Testnet.')
     } catch (e: any) {
       console.error('Wallet connect error:', e)
       const msg = e?.message || 'Failed to connect'
       if (msg.includes('network') || msg.includes('NETWORK_NOT_GRANTED')) {
         setError('Switch your Leo Wallet to Testnet first (Settings → Network → Testnet)')
-      } else if (msg.includes('not selected') || msg.includes('NotSelected')) {
-        // selectWallet didn't propagate yet, try once more
-        try {
-          await new Promise(r => setTimeout(r, 500))
-          await connect(Network.TESTNET)
-          setShowDropdown(false)
-          setError(null)
-        } catch (e2: any) {
-          const msg2 = e2?.message || ''
-          if (msg2.includes('network') || msg2.includes('NETWORK_NOT_GRANTED')) {
-            setError('Switch your Leo Wallet to Testnet first (Settings → Network → Testnet)')
-          } else {
-            setError(msg2 || 'Failed to connect')
-          }
-        }
+      } else if (msg.includes('No address')) {
+        setError('Leo Wallet connected but returned no address. Unlock your wallet and try again.')
       } else {
         setError(msg)
       }
